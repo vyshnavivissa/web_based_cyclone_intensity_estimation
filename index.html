@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyclone Intensity Estimation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <style>
+        /* General Styles */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #ffffff;
+        }
+
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .bg-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: -1;
+        }
+
+        nav {
+            background-color: #000000;
+            padding: 10px;
+        }
+
+        nav ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        nav ul li a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 18px;
+        }
+
+        section {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .text-box {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 20px auto;
+        }
+
+        #database-table, #similar-cyclones-table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        #database-table th, #database-table td, #similar-cyclones-table th, #similar-cyclones-table td {
+            border: 1px solid #ffffff;
+            padding: 10px;
+            text-align: left;
+        }
+
+        canvas {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="background">
+        <video autoplay loop muted class="bg-video">
+            <source src="background.mp4" type="video/mp4">
+        </video>
+        <div class="overlay"></div>
+    </div>
+    <nav>
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#prediction">Prediction</a></li>
+            <li><a href="#database">Database</a></li>
+            <li><a href="#download">Download</a></li>
+            <li><a href="#about">About</a></li>
+        </ul>
+    </nav>
+    <section id="home">
+        <div class="text-box">
+            <h1>Cyclone Intensity Estimation</h1>
+            <p>Understand and predict the strength of cyclones.</p>
+        </div>
+    </section>
+    <section id="prediction">
+        <h2>Predict Cyclone Intensity</h2>
+        <form id="predict-form">
+            <input type="file" id="cyclone-image" accept=".png, .jpg, .jpeg">
+            <button type="button" onclick="predictIntensity()">Predict</button>
+        </form>
+        <div id="results"></div>
+        <h3>Intensity Chart</h3>
+        <canvas id="intensity-chart"></canvas>
+        <h3>Similar Cyclones</h3>
+        <table id="similar-cyclones-table"></table>
+    </section>
+    <section id="database">
+        <h2>Database</h2>
+        <div class="text-box">
+            <input type="text" id="search-bar" placeholder="Search cyclone by name...">
+            <button onclick="searchDatabase()">Search</button>
+            <button onclick="fetchEntireDatabase()">Load Entire Database</button>
+        </div>
+        <table id="database-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Year</th>
+                    <th>Month</th>
+                    <th>Day</th>
+                    <th>Hour</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Status</th>
+                    <th>Category</th>
+                    <th>Wind (km/hr)</th>
+                    <th>Pressure (hPa)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dynamic Rows Will Be Added Here -->
+            </tbody>
+        </table>
+        <p id="search-result"></p>
+    </section>
+    <section id="download">
+        <h2>Download Data</h2>
+        <button onclick="downloadData()">Download</button>
+    </section>
+    <section id="about">
+        <div class="text-box">
+            <div class="about">
+                <h2>About the Project</h2>
+                <p>
+                    The <strong>Cyclone Intensity Estimation</strong> project is a web application designed to predict the intensity of cyclones using advanced deep learning models. The homepage introduces the project, explains its purpose, and provides a user-friendly interface for uploading cyclone images. Once an image is uploaded, the <strong>Prediction</strong> page displays the estimated intensity, category, and additional details such as the year and region of similar historical cyclones. This helps users understand the potential impact of the cyclone and compare it to past events.
+                </p>
+                <p>
+                    The <strong>Database</strong> page is a comprehensive resource, featuring a dataset of over 1,100 cyclones recorded from 1851 to 2016. This dataset includes detailed information such as cyclone names, years, months, days, hours, latitude, longitude, status, category, wind speed (km/hr), and pressure (hPa). Users can search for specific cyclones or explore the entire dataset to analyze trends and patterns. The <strong>Download</strong> page allows users to export this data in CSV format for further research and analysis.
+                </p>
+                <p>
+                    This project aims to assist meteorologists, researchers, and the general public in understanding and predicting cyclone behavior. By combining deep learning technology with a rich historical dataset, it provides valuable insights into cyclone intensity and its potential impact.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        async function predictIntensity() {
+            try {
+                const fileInput = document.getElementById("cyclone-image");
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert("Please upload an image.");
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append("file", file);
+
+                const response = await fetch("http://127.0.0.1:5000/predict", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const results = document.getElementById("results");
+
+                    // Update results box
+                    results.innerHTML = `
+                        <div class="text-box">
+                            <p><b>Intensity:</b> ${data.intensity} km/hr</p>
+                            <p><b>Category:</b> ${data.cyclone_type}</p>
+                            <p><b>Year:</b> ${data.year}</p>
+                            <p><b>Region:</b> ${data.region}</p>
+                        </div>
+                    `;
+
+                    // Plot the intensity graph
+                    plotIntensityGraph(data.intensity, data.cyclone_type, data.year, data.region);
+
+                    // Display similar cyclones
+                    displaySimilarCyclones(data.similar_cyclones);
+                } else {
+                    alert("Prediction failed. Please try again.");
+                }
+            } catch (error) {
+                console.error("Error during prediction:", error);
+                alert("An unexpected error occurred. Please try again later.");
+            }
+        }
+
+        function plotIntensityGraph(intensity, category, year, region) {
+            const ctx = document.getElementById("intensity-chart").getContext("2d");
+
+            // Define cyclone categories and their corresponding wind speed ranges
+            const categories = [
+                { label: "Not a Tropical Cyclone", max: 39, color: "blue" },
+                { label: "Tropical Storm", max: 73, color: "green" },
+                { label: "Category 1", max: 95, color: "yellow" },
+                { label: "Category 2", max: 110, color: "orange" },
+                { label: "Category 3", max: 129, color: "red" },
+                { label: "Category 4", max: 156, color: "purple" },
+                { label: "Category 5", max: 200, color: "darkred" }
+            ];
+
+            // Create labels and data for the chart
+            const labels = categories.map(c => c.label);
+            const data = categories.map(c => c.max);
+
+            // Destroy existing chart instance if it exists
+            if (window.myChart) {
+                window.myChart.destroy();
+            }
+
+            // Create new chart
+            window.myChart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: `Cyclone Categories`,
+                            data: data,
+                            backgroundColor: categories.map(c => c.color),
+                            borderColor: "rgba(255, 255, 255, 0.5)",
+                            borderWidth: 1,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 2,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: "#ffffff",
+                                font: {
+                                    size: 14,
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (tooltipItem) {
+                                    return `Max Wind Speed: ${tooltipItem.raw} km/h`;
+                                }
+                            }
+                        },
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: "line",
+                                    xMin: intensity,
+                                    xMax: intensity,
+                                    borderColor: "black",
+                                    borderWidth: 2,
+                                    label: {
+                                        enabled: true,
+                                        content: `Predicted Intensity: ${intensity} km/h`,
+                                        position: "end",
+                                        backgroundColor: "black",
+                                        color: "white",
+                                        font: {
+                                            size: 12,
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: "category",
+                            position: "bottom",
+                            grid: {
+                                color: "rgba(255, 255, 255, 0.2)"
+                            },
+                            ticks: {
+                                color: "#ffffff",
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: "rgba(255, 255, 255, 0.2)"
+                            },
+                            ticks: {
+                                color: "#ffffff",
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        }
+                    },
+                    layout: {
+                        padding: {
+                            left: 20,
+                            right: 20,
+                            top: 10,
+                            bottom: 10
+                        }
+                    }
+                }
+            });
+
+            // Add a black background box around the chart container
+            const container = ctx.canvas.parentNode;
+            container.style.backgroundColor = "black";
+            container.style.padding = "15px";
+            container.style.borderRadius = "10px";
+        }
+
+        async function searchDatabase() {
+            const searchBar = document.getElementById("search-bar").value.trim();
+            const table = document.getElementById("database-table");
+            const resultText = document.getElementById("search-result");
+
+            if (searchBar === "") {
+                resultText.textContent = "Please enter a name to search.";
+                table.innerHTML = "";
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/cyclones?search=${searchBar}`);
+                if (!response.ok) throw new Error("Search request failed.");
+
+                const data = await response.json();
+                if (data.length > 0) {
+                    table.innerHTML = `
+                        <tr>
+                            <th>Name</th>
+                            <th>Year</th>
+                            <th>Month</th>
+                            <th>Day</th>
+                            <th>Hour</th>
+                            <th>Latitude</th>
+                            <th>Longitude</th>
+                            <th>Status</th>
+                            <th>Category</th>
+                            <th>Wind (km/hr)</th>
+                            <th>Pressure (hPa)</th>
+                        </tr>
+                    ` + data.map(c => `
+                        <tr>
+                            <td>${c.name || "N/A"}</td>
+                            <td>${c.year || "N/A"}</td>
+                            <td>${c.month || "N/A"}</td>
+                            <td>${c.day || "N/A"}</td>
+                            <td>${c.hour || "N/A"}</td>
+                            <td>${c.lat || "N/A"}</td>
+                            <td>${c.lon || "N/A"}</td>
+                            <td>${c.status || "N/A"}</td>
+                            <td>${c.category || "N/A"}</td>
+                            <td>${c.wind || "N/A"}</td>
+                            <td>${c.pressure || "N/A"}</td>
+                        </tr>
+                    `).join('');
+                    resultText.textContent = "";
+                } else {
+                    table.innerHTML = "";
+                    resultText.textContent = "No cyclones found.";
+                }
+            } catch (error) {
+                console.error("Error fetching search results:", error);
+                resultText.textContent = "Search failed. Please try again.";
+            }
+        }
+
+        async function fetchEntireDatabase() {
+            try {
+                const response = await fetch("http://127.0.0.1:5000/cyclones");
+                const data = await response.json();
+                const tableBody = document.querySelector("#database-table tbody");
+                tableBody.innerHTML = `
+                    <tr>
+                        <th>Name</th>
+                        <th>Year</th>
+                        <th>Month</th>
+                        <th>Day</th>
+                        <th>Hour</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Status</th>
+                        <th>Category</th>
+                        <th>Wind (km/hr)</th>
+                        <th>Pressure (hPa)</th>
+                    </tr>
+                ` + data.map(cyclone => `
+                    <tr>
+                        <td>${cyclone.name || "N/A"}</td>
+                        <td>${cyclone.year || "N/A"}</td>
+                        <td>${cyclone.month || "N/A"}</td>
+                        <td>${cyclone.day || "N/A"}</td>
+                        <td>${cyclone.hour || "N/A"}</td>
+                        <td>${cyclone.lat || "N/A"}</td>
+                        <td>${cyclone.lon || "N/A"}</td>
+                        <td>${cyclone.status || "N/A"}</td>
+                        <td>${cyclone.category || "N/A"}</td>
+                        <td>${cyclone.wind || "N/A"}</td>
+                        <td>${cyclone.pressure || "N/A"}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error("Error fetching database:", error);
+            }
+        }
+
+        function displaySimilarCyclones(similarCyclones) {
+            const table = document.getElementById("similar-cyclones-table");
+            if (similarCyclones && similarCyclones.length > 0) {
+                table.innerHTML = `
+                    <tr>
+                        <th>Name</th>
+                        <th>Year</th>
+                        <th>Month</th>
+                        <th>Day</th>
+                        <th>Hour</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Status</th>
+                        <th>Category</th>
+                        <th>Wind (km/hr)</th>
+                        <th>Pressure (hPa)</th>
+                    </tr>
+                ` + similarCyclones.map(c => `
+                    <tr>
+                        <td>${c.name || "N/A"}</td>
+                        <td>${c.year || "N/A"}</td>
+                        <td>${c.month || "N/A"}</td>
+                        <td>${c.day || "N/A"}</td>
+                        <td>${c.hour || "N/A"}</td>
+                        <td>${c.lat || "N/A"}</td>
+                        <td>${c.lon || "N/A"}</td>
+                        <td>${c.status || "N/A"}</td>
+                        <td>${c.category || "N/A"}</td>
+                        <td>${c.wind || "N/A"}</td>
+                        <td>${c.pressure || "N/A"}</td>
+                    </tr>
+                `).join('');
+            } else {
+                table.innerHTML = "<tr><td colspan='11'>No similar cyclones found.</td></tr>";
+            }
+        }
+
+        function downloadData() {
+            const anchor = document.createElement("a");
+            anchor.href = "http://127.0.0.1:5000/download";
+            anchor.download = "cyclone_data.csv";
+            anchor.click();
+        }
+
+        // Load the entire database when the page loads
+        window.onload = fetchEntireDatabase;
+    </script>
+</body>
+</html>
